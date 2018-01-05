@@ -1,0 +1,93 @@
+version: "2"
+
+services:
+
+### MySQL Container #########################################
+    mysql:
+        hostname: mysql
+        container_name: mysql
+        image: mysql:5.7
+        volumes:
+            - mysql:/var/lib/mysql:delegated
+        ports:
+            - "3306:3306"
+        networks:
+            - backend
+        env_file: 
+            - .mysql.env
+
+### Redis Container #########################################
+    redis:
+        hostname: redis
+        container_name: redis
+        image: redis:latest
+        networks:
+            - backend
+
+### Application Code Container ##############################
+    application:
+        hostname: app
+        container_name: app
+        image: tianon/true
+        volumes:
+            - ./configs:/configs:delegated
+            - ./laravel:/var/www:delegated
+
+### PHP-FPM Container #######################################
+    backend:
+        hostname: backend
+        container_name: backend
+        image: crunchgeek/php-fpm:7.0-r2
+        volumes_from:
+            - application
+        depends_on:
+            - mysql
+            - redis
+        networks:
+            - backend
+        env_file: 
+            - laravel/.env
+            - .php-fpm.env
+            - .blackfire.env
+            - .overwrite.env
+
+### Nginx Server Container ##################################
+    frontend:
+        hostname: frontend
+        container_name: frontend
+        image: crunchgeek/nginx-pagespeed:latest
+        volumes_from:
+            - application
+        ports:
+            - "80:80"
+        depends_on:
+            - backend
+        networks:
+            - frontend
+            - backend
+        env_file: 
+            - .nginx.env
+
+### Blackfire App Profiler Container ########################
+    blackfire:
+        hostname: blackfire
+        container_name: blackfire
+        image: blackfire/blackfire
+        depends_on:
+            - backend
+        networks:
+            - backend
+        env_file: 
+            - .blackfire.env
+
+### Networks Setup ##########################################
+networks:
+    frontend:
+        driver: "bridge"
+    backend:
+        driver: "bridge"
+
+### Volumes Setup ###########################################
+volumes:
+    mysql:
+        driver: "local"
